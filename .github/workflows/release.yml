@@ -1,0 +1,82 @@
+name: Build & Release
+
+# Build standalone desktop apps for Windows, macOS, and Linux and attach them to
+# a GitHub Release. Trigger by pushing a version tag, e.g.:
+#   git tag v1.0.0
+#   git push origin v1.0.0
+# You can also run it manually from the Actions tab (Run workflow).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create the Release and upload files
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows
+            bin: xertocsv.exe
+            asset: XERtoCSV-Windows.exe
+          - os: macos-latest
+            label: macOS
+            bin: xertocsv
+            asset: XERtoCSV-macOS
+          - os: ubuntu-latest
+            label: Linux
+            bin: xertocsv
+            asset: XERtoCSV-Linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # The Linux file-dialog backend (rfd) needs GTK at build time.
+      - name: Install Linux GUI dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev
+
+      - name: Build (release)
+        run: cargo build --release
+
+      - name: Rename binary for upload
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "target/release/${{ matrix.bin }}" "dist/${{ matrix.asset }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    # Only publish a Release when triggered by a version tag.
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true

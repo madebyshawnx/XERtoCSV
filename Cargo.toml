@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-csv = "1.1"  # For handling CSV files
-walkdir = "2.3"  # For directory traversal
+csv = "1.1"        # For handling CSV files
+walkdir = "2.3"    # For directory traversal
+eframe = "0.29"    # Cross-platform GUI (egui) for the desktop window
+rfd = "0.15"       # Native "open folder / open file" dialogs
