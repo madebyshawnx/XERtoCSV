@@ -1,12 +1,12 @@
 # XER to CSV Converter
 
-This is a simple desktop app that converts Primavera P6 `.xer` schedule files into CSV files. It creates one CSV file per table. There is no installation, no command line, and no technical setup required.
+This is a simple desktop app that converts Primavera P6 `.xer` schedule files into CSV files. For each `.xer` file it writes one CSV per table and a master Excel workbook that holds every table on its own tab. There is no installation, no command line, and no technical setup required.
 
 ## Download and Run (Windows)
 
-Click the link below to download the app as a zip file.
+Click the link below to download the app as a zip file. This link always points to the latest version.
 
-[**Download XERtoCSV-Windows.zip**](https://github.com/madebyshawnx/XERtoCSV/releases/download/v1.0.0/XERtoCSV-Windows.zip)
+[**Download XERtoCSV-Windows.zip**](https://github.com/madebyshawnx/XERtoCSV/releases/latest/download/XERtoCSV-Windows.zip)
 
 After it downloads, follow these steps.
 
@@ -26,30 +26,33 @@ You can always find the latest version on the [Releases page](https://github.com
 
 ## What You Get
 
-For each `.xer` file, the app creates a subfolder named after that file. Inside that subfolder, it writes one `.csv` file for each table found in the original file.
+For each `.xer` file, the app creates a subfolder named after that file. Inside that subfolder, it writes one `.csv` file for each table, plus a master `.xlsx` Excel workbook named after the file that contains every table on its own tab.
 
 ```
 your-output-folder/
   ProjectA/            (from ProjectA.xer)
+    ProjectA.xlsx      (master workbook, one tab per table)
     TASK.csv
     PROJWBS.csv
     CALENDAR.csv
   ProjectB/            (from ProjectB.xer)
+    ProjectB.xlsx
     TASK.csv
     PROJWBS.csv
 ```
 
 Each CSV file uses the table's column names as the first row, followed by one row for each record. Commas, quotes, and line breaks inside the data are escaped automatically so the CSV stays valid.
 
+The converter is built to handle any `.xer` file faithfully. It reads the Windows-1252 (ANSI) encoding that Primavera P6 normally exports, so accented names and symbols such as the Pound Sterling sign are preserved instead of being corrupted. It has been verified against real project files, reproducing every record with no data dropped.
+
 ## Versions for Mac and Linux
 
-The download above is the Windows version. Versions for Mac and Linux are built automatically when a new release is tagged. You can find them on the [Releases page](../../releases).
+The download above is the Windows version. Versions for macOS and Linux are built automatically for each release and can be downloaded from the [Releases page](../../releases).
 
-| System  | File                   |
-| ------- | ---------------------- |
-| Windows | `XERtoCSV-Windows.exe` |
-| macOS   | `XERtoCSV-macOS`       |
-| Linux   | `XERtoCSV-Linux`       |
+| System | File              |
+| ------ | ----------------- |
+| macOS  | `XERtoCSV-macOS`  |
+| Linux  | `XERtoCSV-Linux`  |
 
 ## For Developers
 

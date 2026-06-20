@@ -15,9 +15,10 @@ fn main() -> eframe::Result<()> {
         match convert::convert_dir(Path::new(&args[1]), Path::new(&args[2])) {
             Ok(summary) => {
                 println!(
-                    "Done. Processed {} file(s), wrote {} CSV table(s).",
+                    "Done. Processed {} file(s), wrote {} CSV table(s) and {} master Excel workbook(s).",
                     summary.files_processed.len(),
-                    summary.tables_written
+                    summary.tables_written,
+                    summary.workbooks_written
                 );
             }
             Err(e) => {
@@ -169,9 +170,10 @@ impl XerApp {
             Ok(summary) => {
                 self.last_run_ok = true;
                 self.status = format!(
-                    "✅ Success! Converted {} file(s) into {} CSV table(s).\nSaved in: {}",
+                    "✅ Success! Converted {} file(s) into {} CSV table(s), plus {} master Excel workbook(s).\nSaved in: {}",
                     summary.files_processed.len(),
                     summary.tables_written,
+                    summary.workbooks_written,
                     output.display()
                 );
             }
