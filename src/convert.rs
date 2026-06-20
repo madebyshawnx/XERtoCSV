@@ -78,6 +78,8 @@ fn process_file(file_path: &Path, output_dir: &Path) -> io::Result<usize> {
     let mut content = Vec::new();
     reader.read_to_end(&mut content)?;
     let content = String::from_utf8_lossy(&content);
+    // Strip a leading byte-order mark so the first line's marker is recognized.
+    let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
 
     // Group output by the source file's base name, e.g. ProjectA.xer -> ProjectA/.
     let base_name = file_path
