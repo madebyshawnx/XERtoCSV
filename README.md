@@ -1,54 +1,109 @@
-Building and Running the Project
---------------------------------
+# XER → CSV Converter
 
-This section will guide you through building and running the Rust project that processes Primavera P6 `.xer` files and converts them into CSV format.
+A simple desktop app that converts Primavera P6 `.xer` schedule files into CSV
+files — one CSV per table. No installation, no command line, no technical setup.
 
-### Prerequisites
+---
 
-Before you begin, ensure you have the following installed on your system:
+## ⬇️ Download & Run (Windows)
 
--   **Rust**: You can install Rust using [rustup](https://rustup.rs/), the official Rust installer. Follow the instructions on the website to get the latest stable version of Rust and Cargo (Rust's package manager and build system).
+**[Download XERtoCSV-Windows.exe](download/XERtoCSV-Windows.exe?raw=true)**
 
-### Build the Project
+1. Click the link above, then click the **Download** button on the next page.
+2. Double-click the downloaded `XERtoCSV-Windows.exe`.
+3. Use the app:
+   - **1. Choose what to convert** — pick a folder of `.xer` files, *or* pick
+     individual `.xer` files.
+   - **2. Choose where to save** — pick an output folder for the CSVs.
+   - **3. Convert** — click it. Done.
 
-1.  **Clone the Repository**
+That's it. The app is fully self-contained — nothing else to install.
 
-    Clone this repository to your local machine using Git or download it as a zip to be extracted:
+> **Windows SmartScreen note:** because the app isn't code-signed, Windows may
+> show a blue "Windows protected your PC" box the first time. Click
+> **More info → Run anyway**. (This happens with any new, unsigned app.)
 
-     ```bash
-     sudo apt-get install git
-     ```
+> **Mac / Linux:** versions for those systems are produced automatically on the
+> [Releases page](../../releases). See *Other platforms* below.
 
-    ```bash
-    git clone https://github.com/koubry02/xer_to_csv.git
-    cd xer_to_csv
-     ```
+---
 
-    
+## What you get
 
-3.  **Install Dependencies**
+For each `.xer` file, the app creates a subfolder named after that file, and
+inside it writes one `.csv` per table found in the file:
 
-    Navigate to the project directory and run the following command to fetch the required dependencies:
-
-
-    ```bash
-    cargo build
-    ```
-
-    This command will download and compile all the necessary crates specified in `Cargo.toml`.
-
-### Run the Project
-
-To run the project, use the following command:
-
-```bash
-cargo run -- <input_directory> <output_directory>
+```
+your-output-folder/
+  ProjectA/            (from ProjectA.xer)
+    TASK.csv
+    PROJWBS.csv
+    CALENDAR.csv
+    ...
+  ProjectB/            (from ProjectB.xer)
+    ...
 ```
 
-Replace `<input_directory>` with the path to the directory containing `.xer` files you want to process, and `<output_directory>` with the path where you want the CSV files to be saved.
+Each CSV has the table's column names as the first (header) row, followed by one
+row per record. Commas, quotes, and newlines inside fields are escaped
+automatically.
 
-### Notes
+---
 
--   Ensure that the `.xer` files follow the expected format for correct processing.
--   The output directory will contain subdirectories named after the `.xer` file base names, with each subdirectory containing corresponding CSV files.
+## Other platforms (Mac & Linux)
 
+Tagged releases automatically build standalone apps for **Windows, macOS, and
+Linux**. Grab the one for your system from the
+[**Releases page**](../../releases):
+
+| System  | File |
+| ------- | ---- |
+| Windows | `XERtoCSV-Windows.exe` |
+| macOS   | `XERtoCSV-macOS` |
+| Linux   | `XERtoCSV-Linux` |
+
+---
+
+## For developers
+
+### Run from source
+
+Requires [Rust](https://rustup.rs/).
+
+```bash
+cargo run --release
+```
+
+This opens the desktop app. You can also run it headless from the command line:
+
+```bash
+cargo run --release -- <input_directory> <output_directory>
+```
+
+### How it works
+
+An `.xer` file is tab-delimited text made of stacked tables. Each line starts
+with a marker:
+
+| Marker | Meaning |
+| ------ | ------- |
+| `%T`   | start of a new table (the rest of the line is the table name) |
+| `%F`   | the field/column names for that table |
+| `%R`   | one data record |
+
+Everything else (`ERMHDR`, `%E`, blanks) is ignored. The converter walks the
+file line by line and writes each table to its own CSV. The conversion logic
+lives in [`src/convert.rs`](src/convert.rs); the desktop window is in
+[`src/main.rs`](src/main.rs).
+
+### Building releases
+
+Push a version tag to build and publish standalone apps for all three platforms:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The [release workflow](.github/workflows/release.yml) compiles each platform and
+attaches the binaries to a new GitHub Release.

@@ -1,116 +1,184 @@
-use csv::Writer;
-use std::env;
-use std::fs::{self, File};
-use std::io::{BufReader, Read};
-use std::path::Path;
-use walkdir::WalkDir;
+// Hide the console window on Windows release builds so double-clicking the .exe
+// opens just the app window, not a black terminal behind it.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-fn main() -> std::io::Result<()> {
-    // Get the directory paths from command-line arguments
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        eprintln!("Usage: {} <input_directory> <output_directory>", args[0]);
-        std::process::exit(1);
-    }
+mod convert;
 
-    let input_dir = &args[1];
-    let output_dir = &args[2];
+use eframe::egui;
+use std::path::{Path, PathBuf};
 
-    // Ensure the input directory exists
-    if !fs::metadata(input_dir)?.is_dir() {
-        eprintln!("The provided input path is not a directory.");
-        std::process::exit(1);
-    }
-
-    // Ensure the output directory exists or create it
-    if !fs::metadata(output_dir).map(|m| m.is_dir()).unwrap_or(false) {
-        fs::create_dir_all(output_dir)?;
-    }
-
-    // Iterate over all .xer files in the input directory
-    for entry in WalkDir::new(input_dir).into_iter().filter_map(Result::ok) {
-        let path = entry.path();
-        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("xer") {
-            process_file(path, output_dir)?;
-            println!("{}", path.to_string_lossy())
+fn main() -> eframe::Result<()> {
+    // Backward-compatible command-line mode: if the user passes
+    // `<input_dir> <output_dir>`, run the old behavior and skip the window.
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 3 {
+        match convert::convert_dir(Path::new(&args[1]), Path::new(&args[2])) {
+            Ok(summary) => {
+                println!(
+                    "Done. Processed {} file(s), wrote {} CSV table(s).",
+                    summary.files_processed.len(),
+                    summary.tables_written
+                );
+            }
+            Err(e) => {
+                eprintln!("Error: {e}");
+                std::process::exit(1);
+            }
         }
-       
+        return Ok(());
     }
 
-    Ok(())
+    // Otherwise, launch the desktop app.
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([620.0, 480.0])
+            .with_min_inner_size([460.0, 360.0]),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "XER to CSV Converter",
+        options,
+        Box::new(|_cc| Ok(Box::<XerApp>::default())),
+    )
 }
 
-fn process_file(file_path: &Path, output_dir: &str) -> std::io::Result<()> {
-    let file = File::open(file_path)?;
-    let mut reader = BufReader::new(file);
-
-    // Read the entire file content as bytes
-    let mut content = Vec::new();
-    reader.read_to_end(&mut content)?;
-
-    // Convert bytes to a string using a lossless conversion
-    let content = String::from_utf8_lossy(&content);
-
-    let base_name = file_path.file_stem().unwrap().to_str().unwrap();
-    let output_subdir = Path::new(output_dir).join(base_name);
-
-    // Ensure the output subdirectory exists
-    if !fs::metadata(&output_subdir).map(|m| m.is_dir()).unwrap_or(false) {
-        fs::create_dir_all(&output_subdir)?;
-    }
-
-    let mut section_name = String::new();
-    let mut headers = Vec::new();
-    let mut rows = Vec::new();
-
-    for line in content.lines() {
-        let line = line.trim();
-
-        if line.starts_with("%T") {
-            if !section_name.is_empty() {
-                save_csv(&section_name, &headers, &rows, &output_subdir)?;
-            }
-
-            section_name = line[2..].trim().to_string();
-            headers.clear();
-            rows.clear();
-        } else if line.starts_with("%F") {
-            headers = line[2..].trim().split('\t').map(String::from).collect();
-        } else if line.starts_with("%R") {
-            let row_values = line[2..].trim().split('\t').map(String::from).collect::<Vec<String>>();
-            let mut row = row_values;
-            if row.len() < headers.len() {
-                // Fill missing values with empty strings
-                row.extend(vec!["".to_string(); headers.len() - row.len()]);
-            }
-            rows.push(row);
-        }
-    }
-
-    // Save the last section if it exists
-    if !section_name.is_empty() {
-        save_csv(&section_name, &headers, &rows, &output_subdir)?;
-    }
-
-    Ok(())
+/// Where the input is coming from.
+enum InputSource {
+    /// A folder that will be scanned recursively for `.xer` files.
+    Folder(PathBuf),
+    /// A specific set of `.xer` files the user picked.
+    Files(Vec<PathBuf>),
 }
 
-fn save_csv( section_name: &str, headers: &[String], rows: &[Vec<String>], output_subdir: &Path) -> std::io::Result<()> {
-    // Create the CSV file path with the same base name and section name
-    let csv_file_name = format!("{}.csv", section_name.replace(' ', "_"));
-    let csv_file_path = output_subdir.join(csv_file_name);
+#[derive(Default)]
+struct XerApp {
+    input: Option<InputSource>,
+    output: Option<PathBuf>,
+    status: String,
+    last_run_ok: bool,
+}
 
-    let file = File::create(csv_file_path)?;
-    let mut wtr = Writer::from_writer(file);
+impl eframe::App for XerApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.add_space(8.0);
+            ui.heading("XER → CSV Converter");
+            ui.label("Convert Primavera P6 .xer files into CSV tables. No command line needed.");
+            ui.add_space(12.0);
 
-    // Write headers and rows to the CSV file
-    wtr.write_record(headers)?;
+            // ---- Step 1: choose the input ----
+            ui.group(|ui| {
+                ui.label(egui::RichText::new("1. Choose what to convert").strong());
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    if ui.button("📂  Choose a folder…").clicked() {
+                        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                            self.input = Some(InputSource::Folder(dir));
+                        }
+                    }
+                    if ui.button("📄  Choose .xer file(s)…").clicked() {
+                        if let Some(files) = rfd::FileDialog::new()
+                            .add_filter("XER files", &["xer"])
+                            .pick_files()
+                        {
+                            if !files.is_empty() {
+                                self.input = Some(InputSource::Files(files));
+                            }
+                        }
+                    }
+                });
+                ui.add_space(4.0);
+                ui.label(match &self.input {
+                    Some(InputSource::Folder(p)) => format!("Selected folder: {}", p.display()),
+                    Some(InputSource::Files(f)) => format!("Selected {} file(s)", f.len()),
+                    None => "Nothing selected yet.".to_string(),
+                });
+            });
 
-    for row in rows {
-        wtr.write_record(row)?;
+            ui.add_space(10.0);
+
+            // ---- Step 2: choose the output ----
+            ui.group(|ui| {
+                ui.label(egui::RichText::new("2. Choose where to save the CSVs").strong());
+                ui.add_space(4.0);
+                if ui.button("💾  Choose output folder…").clicked() {
+                    if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                        self.output = Some(dir);
+                    }
+                }
+                ui.add_space(4.0);
+                ui.label(match &self.output {
+                    Some(p) => format!("Saving to: {}", p.display()),
+                    None => "No output folder chosen yet.".to_string(),
+                });
+            });
+
+            ui.add_space(14.0);
+
+            // ---- Step 3: convert ----
+            let ready = self.input.is_some() && self.output.is_some();
+            ui.add_enabled_ui(ready, |ui| {
+                if ui
+                    .add(egui::Button::new(egui::RichText::new("Convert").size(18.0)))
+                    .clicked()
+                {
+                    self.run_conversion();
+                }
+            });
+            if !ready {
+                ui.label(
+                    egui::RichText::new("Pick an input and an output folder to enable Convert.")
+                        .weak(),
+                );
+            }
+
+            // ---- Status ----
+            if !self.status.is_empty() {
+                ui.add_space(12.0);
+                ui.separator();
+                ui.add_space(6.0);
+                let color = if self.last_run_ok {
+                    egui::Color32::from_rgb(60, 160, 60)
+                } else {
+                    egui::Color32::from_rgb(200, 60, 60)
+                };
+                ui.label(egui::RichText::new(&self.status).color(color));
+            }
+        });
     }
+}
 
-    wtr.flush()?;
+impl XerApp {
+    fn run_conversion(&mut self) {
+        let Some(output) = self.output.clone() else {
+            return;
+        };
 
-    Ok(())
+        let result = match &self.input {
+            Some(InputSource::Folder(dir)) => convert::convert_dir(dir, &output),
+            Some(InputSource::Files(files)) => convert::convert_files(files, &output),
+            None => return,
+        };
+
+        match result {
+            Ok(summary) if summary.files_processed.is_empty() => {
+                self.last_run_ok = false;
+                self.status = "No .xer files were found in the chosen location.".to_string();
+            }
+            Ok(summary) => {
+                self.last_run_ok = true;
+                self.status = format!(
+                    "✅ Success! Converted {} file(s) into {} CSV table(s).\nSaved in: {}",
+                    summary.files_processed.len(),
+                    summary.tables_written,
+                    output.display()
+                );
+            }
+            Err(e) => {
+                self.last_run_ok = false;
+                self.status = format!("❌ Something went wrong: {e}");
+            }
+        }
+    }
 }
