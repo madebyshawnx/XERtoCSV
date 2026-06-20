@@ -63,7 +63,7 @@ impl eframe::App for XerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_space(8.0);
-            ui.heading("XER → CSV Converter");
+            ui.heading("XER to CSV Converter");
             ui.label("Convert Primavera P6 .xer files into CSV tables. No command line needed.");
             ui.add_space(12.0);
 
