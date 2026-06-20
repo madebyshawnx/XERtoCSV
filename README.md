@@ -4,25 +4,25 @@ This is a simple desktop app that converts Primavera P6 `.xer` schedule files in
 
 ## Download and Run (Windows)
 
-Click the link below to download the app. The file will download immediately.
+Click the link below to download the app as a zip file.
 
-[**Download XERtoCSV-Windows.exe**](https://raw.githubusercontent.com/madebyshawnx/XERtoCSV/main/download/XERtoCSV-Windows.exe)
+[**Download XERtoCSV-Windows.zip**](https://github.com/madebyshawnx/XERtoCSV/releases/download/v1.0.0/XERtoCSV-Windows.zip)
 
 After it downloads, follow these steps.
 
-1. Double-click the downloaded file named `XERtoCSV-Windows.exe`.
-2. In the app window, choose what you want to convert. You can pick a folder of `.xer` files or pick individual `.xer` files.
-3. Choose the output folder where you want the CSV files to be saved.
-4. Click the **Convert** button. The app will show a green message when it is done.
+1. Right-click the downloaded `XERtoCSV-Windows.zip` and choose **Extract All**.
+2. Open the extracted folder and double-click `XERtoCSV-Windows.exe`.
+3. In the app window, choose what you want to convert. You can pick a folder of `.xer` files or pick individual `.xer` files.
+4. Choose the output folder where you want the CSV files to be saved.
+5. Click the **Convert** button. The app will show a green message when it is done.
 
-The app is fully self-contained, so there is nothing else to install.
+The app is fully self-contained, so there is nothing else to install. The download is a zip file because web browsers block bare program files, and a zip downloads cleanly.
 
-### First-time warnings are normal
+### First-time warning is normal
 
-Because this app does not have a paid code-signing certificate, your computer may show a warning the first time you use it. These warnings are expected for any new app, and you can safely continue past them.
+Because this app does not have a paid code-signing certificate, Windows may show a warning the first time you open it. This warning is expected for any new app, and you can safely continue past it. If Windows shows a blue box that says "Windows protected your PC," click **More info** and then click **Run anyway**.
 
-1. If your browser says the file is not commonly downloaded, choose **Keep** to allow it.
-2. If Windows shows a blue box that says "Windows protected your PC," click **More info** and then click **Run anyway**.
+You can always find the latest version on the [Releases page](https://github.com/madebyshawnx/XERtoCSV/releases/latest).
 
 ## What You Get
 
